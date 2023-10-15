@@ -160,51 +160,45 @@ import time
 simulated_vehicles = [
     {'type': 'car', 'speed': 60},
     {'type': 'truck', 'speed': 40},
-    {'type': 'bike', 'speed': 70}
+    {'type': 'bike', 'speed': 70},
+    {'type': 'emergency', 'speed': 80},
+    {'type': 'pedestrian', 'speed': 5}
 ]
 
 def generate_simulated_vehicles(num_vehicles):
-    return random.sample(simulated_vehicles, num_vehicles)
+    return random.choices(simulated_vehicles, k=num_vehicles)
 
 def adjust_signal_duration(simulated_vehicles):
-    # Define weights for different types of vehicles
-    weights = {'car': 1, 'truck': 2, 'bike': 1}
-
-    # Calculate the weighted count of vehicles in each lane
+    weights = {'car': 1, 'truck': 2, 'bike': 1, 'emergency': 5, 'pedestrian': 0.2}
     weighted_counts = [weights[vehicle['type']] for vehicle in simulated_vehicles]
-
-    # Adjust the counts based on average vehicle speed
     adjusted_counts = [count * (60 / vehicle['speed']) for count, vehicle in zip(weighted_counts, simulated_vehicles)]
-
-    # Calculate the total adjusted count
     total_adjusted_count = sum(adjusted_counts)
-
-    # Calculate the proportion of vehicles in each lane
     proportions = [count / total_adjusted_count for count in adjusted_counts]
-
-    # Define a base duration for your traffic signals (in seconds)
     base_duration = 60
-
-    # Adjust the signal duration for each lane based on the proportion of vehicles
     signal_durations = [base_duration * proportion for proportion in proportions]
 
-    # Decrease signal duration for any lane with a truck
-    for i, vehicle in enumerate(simulated_vehicles):
-        if vehicle['type'] == 'truck':
-            signal_durations[i] -= 30
+    # Introduce some randomness in signal durations
+    signal_durations = [duration * random.uniform(0.8, 1.2) for duration in signal_durations]
 
     return signal_durations
 
-def simulate_traffic_lights():
-    # Define signal durations based on simulated vehicles
-    signal_durations = adjust_signal_duration(simulated_vehicles)
+def simulate_traffic_lights(night_mode=False):
+    num_vehicles = random.randint(10, 30)  # Generate a random number of vehicles
+    vehicles = generate_simulated_vehicles(num_vehicles)
 
     # Define colors
     RED = (255, 0, 0)
     YELLOW = (255, 255, 0)
     GREEN = (0, 255, 0)
 
-    for duration in signal_durations:
+    for duration in adjust_signal_duration(vehicles):
+        # Night mode adjustments
+        if night_mode:
+            RED = (128, 0, 0)
+            YELLOW = (128, 128, 0)
+            GREEN = (0, 128, 0)
+            vehicles = generate_simulated_vehicles(num_vehicles * 2)  # Increase vehicle count at night
+
         # Red light
         print("Red Light")
         time.sleep(duration // 3)
@@ -217,5 +211,15 @@ def simulate_traffic_lights():
         print("Green Light")
         time.sleep(duration // 3)
 
-simulate_traffic_lights()
+        # Simulate traffic violations
+        for vehicle in vehicles:
+            if vehicle['type'] != 'emergency' and random.random() < 0.05:  # 5% chance of violation
+                print(f"Traffic violation by {vehicle['type']}!")
 
+        # Simulate pedestrian crossings
+        num_pedestrians = random.randint(0, 5)
+        for _ in range(num_pedestrians):
+            print("Pedestrian crossing!")
+
+# Example usage
+simulate_traffic_lights(night_mode=True)  # Enable night mode for more vehicles and adjusted colors
