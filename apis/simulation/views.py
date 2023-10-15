@@ -91,6 +91,12 @@ def adjust_signal_duration(vehicle_counts, vehicle_types, vehicle_speeds):
         signal_durations = adjust_signal_duration(vehicle_counts, vehicle_types, vehicle_speeds)
 
         # Use signal_durations to adjust your traffic lights here
+        if signal_durations[0] > signal_durations[1]:
+            light_status = 1
+        elif signal_durations[1] > signal_durations[0]:
+            light_status = 2
+        else:
+            light_status = 3
 
         # Update the display
         pygame.display.flip()
