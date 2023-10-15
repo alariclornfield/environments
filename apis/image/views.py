@@ -1,5 +1,6 @@
- import json
+import json
 import cv2
+import numpy as np
 
 def detect_traffic_density(video_path):
     # Load the video from a file or a camera
@@ -15,6 +16,12 @@ def detect_traffic_density(video_path):
         return json.dumps({'traffic_density': 0, 'vehicle_speed': 0})
     first_frame_time = cap.get(cv2.CAP_PROP_POS_MSEC)
 
+    # Convert the first frame to grayscale
+    prev_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # Create a mask for the vehicles
+    mask = np.zeros_like(frame)
+
     # Loop through each frame of the video
     while True:
         # Read the next frame
@@ -27,14 +34,26 @@ def detect_traffic_density(video_path):
         # Convert the frame to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # Apply a Gaussian blur to the grayscale image to reduce noise
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        # Compute the optical flow between the previous frame and the current frame
+        flow = cv2.calcOpticalFlowFarneback(prev_gray, gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
 
-        # Apply a Canny edge detection algorithm to the blurred image
-        edges = cv2.Canny(blur, 50, 150)
+        # Compute the magnitude and direction of the flow vectors
+        mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
 
-        # Find contours in the edges image
-        contours, hierarchy = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Threshold the magnitude of the flow vectors to detect moving objects
+        mask[..., 0] = np.where(mag > 2, 255, 0)
+        mask[..., 1] = np.where(mag > 2, 255, 0)
+        mask[..., 2] = np.where(mag > 2, 255, 0)
+
+        # Convert the mask to grayscale
+        mask_gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+
+        # Apply a morphological opening operation to remove noise
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        mask_gray = cv2.morphologyEx(mask_gray, cv2.MORPH_OPEN, kernel)
+
+        # Find contours in the mask image
+        contours, hierarchy = cv2.findContours(mask_gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # Loop through each contour
         for contour in contours:
@@ -62,6 +81,9 @@ def detect_traffic_density(video_path):
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
+        # Update the previous frame
+        prev_gray = gray
+
     # Release the video capture object and close all windows
     cap.release()
     cv2.destroyAllWindows()
@@ -88,6 +110,6 @@ def calculate_vehicle_speed(x, y, w, h, fps, distance):
     return speed
 
 if __name__ == '__main__':
-    video_path = '../../static/Delhi traffic nightmare_ Tailback traffic near Vasant Kunj crossing (1).mp4'
+    video_path = '../../static/15 minutes of heavy traffic noise in India _ 14-08-2022.mp4'
     result = detect_traffic_density(video_path)
     print(result)
