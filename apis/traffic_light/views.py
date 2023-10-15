@@ -153,8 +153,14 @@ class_ids, confidences, _ = vehicle_detection_yolo("path_to_image.jpg")
 vehicle_types = vehicle_classification(class_ids, confidences)
 signal_durations = adjust_signal_duration([10, 20, 30], vehicle_types, [40, 50, 60])"""
 
+import pygame
 import random
 import time
+
+# Define simulation parameters
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
+FPS = 60
 
 # Define vehicle types and speeds for simulation
 simulated_vehicles = [
@@ -169,57 +175,99 @@ def generate_simulated_vehicles(num_vehicles):
     return random.choices(simulated_vehicles, k=num_vehicles)
 
 def adjust_signal_duration(simulated_vehicles):
-    weights = {'car': 1, 'truck': 2, 'bike': 1, 'emergency': 5, 'pedestrian': 0.2}
+    # Define weights for different types of vehicles
+    weights = {'car': 1, 'truck': 2, 'bike': 1, 'emergency': 3, 'pedestrian': 0.1}
+
+    # Calculate the weighted count of vehicles in each lane
     weighted_counts = [weights[vehicle['type']] for vehicle in simulated_vehicles]
+
+    # Adjust the counts based on average vehicle speed
     adjusted_counts = [count * (60 / vehicle['speed']) for count, vehicle in zip(weighted_counts, simulated_vehicles)]
+
+    # Calculate the total adjusted count
     total_adjusted_count = sum(adjusted_counts)
+
+    # Calculate the proportion of vehicles in each lane
     proportions = [count / total_adjusted_count for count in adjusted_counts]
+
+    # Define a base duration for your traffic signals (in seconds)
     base_duration = 60
+
+    # Adjust the signal duration for each lane based on the proportion of vehicles
     signal_durations = [base_duration * proportion for proportion in proportions]
 
-    # Introduce some randomness in signal durations
-    signal_durations = [duration * random.uniform(0.8, 1.2) for duration in signal_durations]
+    # Decrease signal duration for any lane with an emergency vehicle
+    for i, vehicle in enumerate(simulated_vehicles):
+        if vehicle['type'] == 'emergency':
+            signal_durations[i] -= 10
 
     return signal_durations
 
-def simulate_traffic_lights(night_mode=False):
-    num_vehicles = random.randint(10, 30)  # Generate a random number of vehicles
+def simulate_traffic_lights():
+    pygame.init()
+
+    window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+    pygame.display.set_caption('Advanced Traffic Light Simulation')
+
+    clock = pygame.time.Clock()
+
+    red_color = (255, 0, 0)
+    yellow_color = (255, 255, 0)
+    green_color = (0, 255, 0)
+
+    num_vehicles = random.randint(10, 30)
     vehicles = generate_simulated_vehicles(num_vehicles)
 
-    # Define colors
-    RED = (255, 0, 0)
-    YELLOW = (255, 255, 0)
-    GREEN = (0, 255, 0)
+    def update_traffic_light():
+        nonlocal vehicles
 
-    for duration in adjust_signal_duration(vehicles):
-        # Night mode adjustments
-        if night_mode:
-            RED = (128, 0, 0)
-            YELLOW = (128, 128, 0)
-            GREEN = (0, 128, 0)
-            vehicles = generate_simulated_vehicles(num_vehicles * 2)  # Increase vehicle count at night
+        duration = adjust_signal_duration(vehicles)[0]
 
-        # Red light
-        print("Red Light")
+        # Update the traffic light colors
+        red_light.fill(red_color)
+        yellow_light.fill((255, 255, 0))
+        green_light.fill((0, 255, 0))
+
+        window.blit(red_light, (40, 30))
+        window.blit(yellow_light, (40, 100))
+        window.blit(green_light, (40, 170))
+
+        pygame.display.flip()
+
         time.sleep(duration // 3)
 
-        # Yellow light
-        print("Yellow Light")
+        yellow_light.fill((255, 255, 0))
+        window.blit(yellow_light, (40, 100))
+        pygame.display.flip()
+
         time.sleep(duration // 15)
 
-        # Green light
-        print("Green Light")
+        green_light.fill((0, 255, 0))
+        window.blit(green_light, (40, 170))
+        pygame.display.flip()
+
         time.sleep(duration // 3)
 
-        # Simulate traffic violations
-        for vehicle in vehicles:
-            if vehicle['type'] != 'emergency' and random.random() < 0.05:  # 5% chance of violation
-                print(f"Traffic violation by {vehicle['type']}!")
+        yellow_light.fill((255, 255, 0))
+        window.blit(yellow_light, (40, 100))
+        pygame.display.flip()
 
-        # Simulate pedestrian crossings
-        num_pedestrians = random.randint(0, 5)
-        for _ in range(num_pedestrians):
-            print("Pedestrian crossing!")
+        time.sleep(duration // 15)
+
+        vehicles = generate_simulated_vehicles(num_vehicles)
+
+    red_light = pygame.Surface((40, 40))
+    yellow_light = pygame.Surface((40, 40))
+    green_light = pygame.Surface((40, 40))
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+
+        update_traffic_light()
+        clock.tick(FPS)
 
 # Example usage
-simulate_traffic_lights(night_mode=True)  # Enable night mode for more vehicles and adjusted colors
+simulate_traffic_lights()
