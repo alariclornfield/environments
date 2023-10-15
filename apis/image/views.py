@@ -1,106 +1,33 @@
-import json
 import cv2
 
-def detect_traffic_density(video_path):
-    try:
-        # Load the video from a file or a camera
-        cap = cv2.VideoCapture(video_path)
+cap = cv2.VideoCapture('../../static/bombay_traffic.mp4')
 
-        # Initialize variables to keep track of the number of vehicles and their speed
-        vehicle_count = 0
-        vehicle_speed = 0
-        total_speed = 0
+model = cv2.CascadeClassifier('cars.xml')
 
-        # Get the time stamp of the first frame
-        ret, frame = cap.read()
-        if not ret:
-            raise ValueError('Failed to read video file')
+frame_interval = 10 # time interval in ms
 
-        first_frame_time = cap.get(cv2.CAP_PROP_POS_MSEC)
+traffic_density = []
 
-        # Loop through each frame of the video
-        while True:
-            # Read the next frame
-            ret, frame = cap.read()
+while cap.isOpened():
+    ret, frame = cap.read()
 
-            # If there are no more frames, break out of the loop
-            if not ret:
-                break
+    if not ret:
+        break
 
-            # Convert the frame to grayscale
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    cars = model.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5) #dtetect cars in grayscale in the frame 'gray'
+    # scale factor reduces image scale
+    density = len(cars) / (frame.shape[0] * frame.shape[1])
+    #minNeighbors specifies
+    traffic_density.append(density)
 
-            # Apply a Gaussian blur to the grayscale image to reduce noise
-            blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    cv2.imshow('frame', frame)
 
-            # Apply a Canny edge detection algorithm to the blurred image
-            edges = cv2.Canny(blur, 50, 150)
+    if cv2.waitKey(frame_interval) & 0xFF == ord('q'):
+        break
 
-            # Find contours in the edges image
-            contours, hierarchy = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+cap.release()
+cv2.destroyAllWindows()
 
-            # Loop through each contour
-            for contour in contours:
-                # Calculate the area of the contour
-                area = cv2.contourArea(contour)
+print(traffic_density)
 
-                # If the area is too small, ignore the contour
-                if area < 100:
-                    continue
-
-                # Draw a bounding box around the contour
-                x, y, w, h = cv2.boundingRect(contour)
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-                # Increment the vehicle count
-                vehicle_count += 1
-
-                # Calculate the speed of the vehicle
-                speed = calculate_vehicle_speed(x, y, w, h, cap.get(cv2.CAP_PROP_FPS), 10)
-                total_speed += speed
-
-            # Display the resulting image with bounding boxes around the detected vehicles
-            cv2.imshow('frame', frame)
-
-            # Wait for a key press to exit
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
-        # Release the video capture object and close all windows
-        last_frame_time = cap.get(cv2.CAP_PROP_POS_MSEC)
-        cap.release()
-        cv2.destroyAllWindows()
-
-        # Calculate the traffic density as the number of vehicles per minute
-        total_time = (last_frame_time - first_frame_time) / 1000
-        if total_time == 0:
-            traffic_density = 0
-        else:
-            traffic_density = vehicle_count / total_time * 60
-
-        # Calculate the average vehicle speed
-        if vehicle_count == 0:
-            vehicle_speed = 0
-        else:
-            vehicle_speed = total_speed / vehicle_count
-
-        # Return the traffic density and the average vehicle speed as a JSON string
-        return json.dumps({'traffic_density': round(traffic_density, 2), 'vehicle_speed': round(vehicle_speed, 2)})
-    except Exception as e:
-        print(f'Error: {e}')
-        return json.dumps({'traffic_density': 0, 'vehicle_speed': 0})
-
-def calculate_vehicle_speed(x, y, w, h, fps, distance):
-    # Calculate the midpoint of the bounding box
-    x_mid = x + w / 2
-    y_mid = y + h / 2
-
-    # Calculate the speed of the vehicle based on its position in the frame and the distance to the camera
-    speed = (x_mid - distance) * fps / 100
-
-    return speed
-
-if __name__ == '__main__':
-    video_path = '../../static/bombay traffic.mp4'
-    result = detect_traffic_density(video_path)
-    print(result)
