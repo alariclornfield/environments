@@ -14,15 +14,96 @@ import numpy as np
 import pygame as game
 
 
-def vehicle_detection(img):
-    pass
+# Function for vehicle detection using YOLO
+def vehicle_detection_yolo(img_path):
+    net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")  # Provide the correct paths
+    layer_names = net.getLayerNames()
+    output_layers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
-def vehicle_classification():
-    pass
+    # Load image
+    img = cv2.imread(img_path)
+    height, width, channels = img.shape
 
+    # Detecting objects
+    blob = cv2.dnn.blobFromImage(img, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
+    net.setInput(blob)
+    outs = net.forward(output_layers)
+
+    # Information to return
+    class_ids = []
+    confidences = []
+    boxes = []
+
+    for out in outs:
+        for detection in out:
+            scores = detection[5:]
+            class_id = np.argmax(scores)
+            confidence = scores[class_id]
+            if confidence > 0.5:
+                # Object detected
+                center_x = int(detection[0] * width)
+                center_y = int(detection[1] * height)
+                w = int(detection[2] * width)
+                h = int(detection[3] * height)
+
+                # Rectangle coordinates
+                x = int(center_x - w / 2)
+                y = int(center_y - h / 2)
+
+                boxes.append([x, y, w, h])
+                confidences.append(float(confidence))
+                class_ids.append(class_id)
+
+    return class_ids, confidences, boxes
+
+
+def vehicle_classification(class_ids, confidences):
+    vehicle_types = []
+
+    # Define your classification criteria here
+    for i, class_id in enumerate(class_ids):
+        confidence = confidences[i]
+
+        # Example: If class_id is 0 (car) and confidence is high, classify as 'car'
+        if class_id == 0 and confidence > 0.7:
+            vehicle_types.append('car')
+        # Add more conditions for other types of vehicles
+
+    return vehicle_types
+    
 def simulation():
-    pass
+    # Initialize pygame
+    game.init()
 
+    # Set up the simulation window
+    window_size = (800, 600)
+    screen = game.display.set_mode(window_size)
+    game.display.set_caption('Traffic Light Simulation')
+
+    # Define colors
+    RED = (255, 0, 0)
+    YELLOW = (255, 255, 0)
+    GREEN = (0, 255, 0)
+
+    running = True
+    while running:
+        for event in game.event.get():
+            if event.type == game.QUIT:
+                running = False
+
+        # Draw traffic lights
+        # Red light
+        game.draw.circle(screen, RED, (200, 150), 30)
+        # Yellow light
+        game.draw.circle(screen, YELLOW, (200, 250), 30)
+        # Green light
+        game.draw.circle(screen, GREEN, (200, 350), 30)
+
+        # Update the display
+        game.display.flip()
+
+    game.quit()
+    
 # def adjust_signal_duration(vehicle_counts, vehicle_types):
 #     # Define weights for different types of vehicles
 #     weights = {'emergency': 5, 'truck': 2, 'slow': 1, 'average': 1}
